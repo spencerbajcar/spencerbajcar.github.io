@@ -44,6 +44,60 @@
         .blog-post p {
             color: #666;
         }
+
+        /* Tools button + dropdown */
+        .tools-wrapper {
+            position: fixed;
+            top: 18px;
+            right: 22px;
+            z-index: 1000;
+        }
+        .tools-btn {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+            transition: background 0.15s;
+        }
+        .tools-btn:hover { background: #555; }
+        .tools-btn svg { flex-shrink: 0; }
+        .tools-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+            min-width: 180px;
+            overflow: hidden;
+        }
+        .tools-dropdown.open { display: block; }
+        .tools-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 11px 16px;
+            text-align: left;
+            font-size: 0.9rem;
+            color: #333;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.12s;
+        }
+        .tools-dropdown-item:hover { background: #f4f4f4; }
+
     </style>
 </head>
 <body>
@@ -193,6 +247,35 @@
             </div>
         </div>
     </div>
+    <!-- Tools Button + Dropdown -->
+    <div class="tools-wrapper" id="toolsWrapper">
+        <button class="tools-btn" id="toolsBtn" onclick="toggleToolsMenu()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            Tools
+        </button>
+        <div class="tools-dropdown" id="toolsDropdown">
+            <a class="tools-dropdown-item" href="/jsonbeautifier">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+                JSON Beautifier
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function toggleToolsMenu() {
+            document.getElementById('toolsDropdown').classList.toggle('open');
+        }
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById('toolsWrapper').contains(e.target)) {
+                document.getElementById('toolsDropdown').classList.remove('open');
+            }
+        });
+    </script>
+
     <script type="text/javascript">
       var vglnk = {key: '3228c1dd21000b16de48c8118458beb3'};
       (function(d, t) {var s = d.createElement(t);

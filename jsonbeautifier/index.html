@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Beautifier — Spencer Bajcar</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        header a {
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.12s;
+        }
+        header a:hover { color: #fff; }
+        header h1 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+        main {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 24px auto;
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Controls bar */
+        .controls {
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .ctrl-divider { width: 1px; height: 22px; background: #e0e0e0; flex-shrink: 0; }
+        .controls label { font-size: 0.85rem; color: #555; }
+        .controls select {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            background: #fff;
+            cursor: pointer;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.12s;
+            white-space: nowrap;
+        }
+        .btn-primary  { background: #333; color: #fff; }
+        .btn-primary:hover  { background: #555; }
+        .btn-secondary { background: #eee; color: #333; }
+        .btn-secondary:hover { background: #ddd; }
+        .btn-copy { background: #0969da; color: #fff; }
+        .btn-copy:hover { background: #0550ae; }
+        .btn-copy.copied { background: #1a7f37; }
+        .btn-compare { background: #eee; color: #333; }
+        .btn-compare:hover { background: #ddd; }
+        .btn-compare.active { background: #333; color: #fff; }
+        .btn-compare.active:hover { background: #555; }
+        .copy-group {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Badges */
+        .badge {
+            font-size: 0.76rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: none;
+        }
+        .badge.valid   { background: #dafbe1; color: #1a7f37; display: inline-block; }
+        .badge.invalid { background: #ffebe9; color: #cf222e; display: inline-block; }
+
+        /* Error bars */
+        .error-bar {
+            color: #cf222e;
+            font-size: 0.82rem;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            background: #fff0f0;
+            border: 1px solid #ffc0c0;
+            border-radius: 6px;
+            padding: 8px 14px;
+            display: none;
+        }
+        .error-bar.visible { display: block; }
+
+        /* Panels grid */
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        /* In compare mode: 2 columns × 2 rows — HTML order handles placement */
+        .panels.compare {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0; /* contain content within panel bounds */
+        }
+        .panel-label {
+            padding: 7px 14px;
+            font-size: 0.73rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #888;
+            border-bottom: 1px solid #eee;
+            background: #fafafa;
+        }
+
+        /* Compare mode — add a subtle colored stripe to each column */
+        .panels.compare .col-a .panel-label { border-top: 2px solid #0969da; }
+        .panels.compare .col-b .panel-label { border-top: 2px solid #e36209; }
+
+        .panel textarea {
+            flex: 1;
+            width: 100%;
+            min-height: 440px;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.82rem;
+            border: none;
+            padding: 12px 14px;
+            resize: none;
+            background: transparent;
+            line-height: 1.55;
+            color: #24292e;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        .panels.compare .panel textarea { min-height: 240px; }
+        .panel textarea:focus { outline: none; }
+
+        /* Highlighted output */
+        .output-pre {
+            flex: 1;
+            min-height: 440px;
+            margin: 0;
+            padding: 12px 14px;
+            background: #f6f8fa;
+            overflow: auto;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.55;
+            color: #24292e;
+            white-space: pre;
+            word-break: normal;
+            text-align: left;
+        }
+        .panels.compare .output-pre { min-height: 240px; }
+        .output-pre:empty::before {
+            content: "Formatted JSON will appear here...";
+            color: #bbb;
+            font-style: italic;
+        }
+
+        /* Syntax token colors */
+        .jk { color: #0550ae; }
+        .js { color: #116329; }
+        .jn { color: #953800; }
+        .jb { color: #8250df; font-style: italic; }
+        .jz { color: #cf222e; font-style: italic; }
+
+        /* Rainbow bracket depth */
+        .jd0 { color: #e36209; font-weight: 600; }
+        .jd1 { color: #0969da; font-weight: 600; }
+        .jd2 { color: #1a7f37; font-weight: 600; }
+        .jd3 { color: #8250df; font-weight: 600; }
+        .jd4 { color: #cf222e; font-weight: 600; }
+
+        /* Compare column wrappers */
+        .col-a, .col-b {
+            display: contents; /* children participate in parent grid */
+        }
+        /* In compare mode, wrap each column so children stack vertically */
+        .panels.compare .col-a,
+        .panels.compare .col-b {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0; /* prevent grid item from blowing past its 1fr track */
+        }
+
+        @media (max-width: 680px) {
+            .panels, .panels.compare { grid-template-columns: 1fr; }
+            .copy-group { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            spencerbajcar.github.io
+        </a>
+        <h1>JSON Beautifier</h1>
+    </header>
+
+    <main>
+        <div class="controls">
+            <!-- Compare toggle -->
+            <button class="btn btn-compare" id="compare-toggle" onclick="toggleCompare()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="8" height="18" rx="1.5"/>
+                    <rect x="14" y="3" width="8" height="18" rx="1.5"/>
+                </svg>
+                Compare
+            </button>
+
+            <div class="ctrl-divider"></div>
+
+            <label>Indent:</label>
+            <select id="indent-select">
+                <option value="2">2 spaces</option>
+                <option value="4">4 spaces</option>
+                <option value="tab">Tab</option>
+            </select>
+            <button class="btn btn-primary" id="beautify-btn" onclick="beautify()">Beautify</button>
+            <button class="btn btn-secondary" id="minify-btn" onclick="minify()">Minify</button>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+
+            <div class="copy-group">
+                <span id="badge-a" class="badge"></span>
+                <button class="btn btn-copy" id="copy-a-btn" onclick="copyOutput('a')">Copy</button>
+                <!-- Compare-only -->
+                <div class="ctrl-divider compare-ctrl" style="display:none"></div>
+                <span id="badge-b" class="badge compare-ctrl" style="display:none"></span>
+                <button class="btn btn-copy compare-ctrl" id="copy-b-btn" onclick="copyOutput('b')" style="display:none">Copy B</button>
+            </div>
+        </div>
+
+        <!-- Error bars (stacked, each only shows when relevant) -->
+        <div id="error-bar-a" class="error-bar"></div>
+        <div id="error-bar-b" class="error-bar compare-ctrl" style="display:none"></div>
+
+        <!--
+            Panel HTML order: col-a panels first, col-b panels second.
+            In single mode: col-b is hidden, col-a uses display:contents so
+            its two panels flow into the 2-column grid naturally.
+            In compare mode: both columns are flex-column, and they sit
+            side-by-side in the 2-column grid.
+        -->
+        <div class="panels" id="panels">
+            <div class="col-a" id="col-a">
+                <div class="panel">
+                    <div class="panel-label" id="label-input-a">Input</div>
+                    <textarea id="input-a" placeholder="Paste your JSON here..." spellcheck="false" oninput="onInputChange('a')"></textarea>
+                </div>
+                <div class="panel">
+                    <div class="panel-label" id="label-output-a">Output</div>
+                    <pre class="output-pre" id="output-a"></pre>
+                </div>
+            </div>
+            <div class="col-b compare-ctrl" id="col-b" style="display:none">
+                <div class="panel">
+                    <div class="panel-label">Input B</div>
+                    <textarea id="input-b" placeholder="Paste second JSON here..." spellcheck="false" oninput="onInputChange('b')"></textarea>
+                </div>
+                <div class="panel">
+                    <div class="panel-label">Output B</div>
+                    <pre class="output-pre" id="output-b"></pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        var lastOutput = { a: '', b: '' };
+        var compareMode = false;
+
+        // ── Syntax highlighter ──────────────────────────────────────────────
+
+        function esc(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function highlightJSON(json) {
+            var out = '';
+            var i = 0;
+            var depth = 0;
+            var len = json.length;
+
+            while (i < len) {
+                var ch = json[i];
+
+                if (ch === '"') {
+                    var start = i; i++;
+                    while (i < len) {
+                        if (json[i] === '\\') { i += 2; }
+                        else if (json[i] === '"') { i++; break; }
+                        else { i++; }
+                    }
+                    var raw = json.slice(start, i);
+                    var j = i;
+                    while (j < len && (json[j] === ' ' || json[j] === '\n' || json[j] === '\r' || json[j] === '\t')) j++;
+                    out += '<span class="' + (json[j] === ':' ? 'jk' : 'js') + '">' + esc(raw) + '</span>';
+
+                } else if (ch === '{' || ch === '[') {
+                    out += '<span class="jd' + (depth % 5) + '">' + esc(ch) + '</span>';
+                    depth++; i++;
+
+                } else if (ch === '}' || ch === ']') {
+                    depth = Math.max(0, depth - 1);
+                    out += '<span class="jd' + (depth % 5) + '">' + esc(ch) + '</span>';
+                    i++;
+
+                } else if (json.slice(i, i + 4) === 'true') {
+                    out += '<span class="jb">true</span>'; i += 4;
+                } else if (json.slice(i, i + 5) === 'false') {
+                    out += '<span class="jb">false</span>'; i += 5;
+                } else if (json.slice(i, i + 4) === 'null') {
+                    out += '<span class="jz">null</span>'; i += 4;
+
+                } else if (ch === '-' || (ch >= '0' && ch <= '9')) {
+                    var start = i;
+                    if (ch === '-') i++;
+                    while (i < len && json[i] >= '0' && json[i] <= '9') i++;
+                    if (i < len && json[i] === '.') { i++; while (i < len && json[i] >= '0' && json[i] <= '9') i++; }
+                    if (i < len && (json[i] === 'e' || json[i] === 'E')) {
+                        i++;
+                        if (i < len && (json[i] === '+' || json[i] === '-')) i++;
+                        while (i < len && json[i] >= '0' && json[i] <= '9') i++;
+                    }
+                    out += '<span class="jn">' + esc(json.slice(start, i)) + '</span>';
+
+                } else {
+                    out += esc(ch); i++;
+                }
+            }
+            return out;
+        }
+
+        // ── State helpers ───────────────────────────────────────────────────
+
+        function setOutput(side, text) {
+            lastOutput[side] = text;
+            var pre = document.getElementById('output-' + side);
+            pre.innerHTML = text ? highlightJSON(text) : '';
+        }
+
+        function setError(side, msg) {
+            var el = document.getElementById('error-bar-' + side);
+            if (msg) { el.textContent = (compareMode ? side.toUpperCase() + ': ' : '') + msg; el.classList.add('visible'); }
+            else { el.textContent = ''; el.classList.remove('visible'); }
+        }
+
+        function setBadge(side, state) {
+            var b = document.getElementById('badge-' + side);
+            b.className = 'badge' + (state ? ' ' + state : '');
+            b.textContent = state === 'valid' ? (compareMode ? 'A valid' : 'Valid JSON')
+                          : state === 'invalid' ? (compareMode ? 'A invalid' : 'Invalid JSON') : '';
+            if (side === 'b') {
+                b.textContent = state === 'valid' ? 'B valid' : state === 'invalid' ? 'B invalid' : '';
+            }
+        }
+
+        function getIndent() {
+            var v = document.getElementById('indent-select').value;
+            return v === 'tab' ? '\t' : parseInt(v, 10);
+        }
+
+        // ── Core actions ────────────────────────────────────────────────────
+
+        function processOne(side, fn) {
+            var input = document.getElementById('input-' + side).value.trim();
+            if (!input) return;
+            try {
+                setOutput(side, fn(JSON.parse(input)));
+                setError(side, '');
+                setBadge(side, 'valid');
+            } catch(e) {
+                setError(side, 'Parse error: ' + e.message);
+                setBadge(side, 'invalid');
+                setOutput(side, '');
+            }
+        }
+
+        function beautify() {
+            var indent = getIndent();
+            processOne('a', function(p) { return JSON.stringify(p, null, indent); });
+            if (compareMode) processOne('b', function(p) { return JSON.stringify(p, null, indent); });
+        }
+
+        function minify() {
+            processOne('a', function(p) { return JSON.stringify(p); });
+            if (compareMode) processOne('b', function(p) { return JSON.stringify(p); });
+        }
+
+        function clearAll() {
+            ['a', 'b'].forEach(function(s) {
+                document.getElementById('input-' + s).value = '';
+                setOutput(s, '');
+                setError(s, '');
+                setBadge(s, null);
+            });
+            ['copy-a-btn', 'copy-b-btn'].forEach(function(id) {
+                var btn = document.getElementById(id);
+                btn.classList.remove('copied');
+            });
+            updateCopyLabels();
+        }
+
+        function copyOutput(side) {
+            var text = lastOutput[side];
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(function() {
+                var btn = document.getElementById('copy-' + side + '-btn');
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!'; btn.classList.add('copied');
+                setTimeout(function() { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+            });
+        }
+
+        function onInputChange(side) {
+            var input = document.getElementById('input-' + side).value.trim();
+            if (!input) { setBadge(side, null); setError(side, ''); return; }
+            try { JSON.parse(input); setBadge(side, 'valid'); setError(side, ''); }
+            catch(e) { setBadge(side, 'invalid'); }
+        }
+
+        // ── Compare toggle ──────────────────────────────────────────────────
+
+        function toggleCompare() {
+            compareMode = !compareMode;
+
+            var toggleBtn = document.getElementById('compare-toggle');
+            var panels    = document.getElementById('panels');
+
+            toggleBtn.classList.toggle('active', compareMode);
+            panels.classList.toggle('compare', compareMode);
+
+            // Show/hide compare-only elements
+            document.querySelectorAll('.compare-ctrl').forEach(function(el) {
+                el.style.display = compareMode ? (el.tagName === 'DIV' ? 'flex' : 'inline-flex') : 'none';
+                if (el.tagName === 'SPAN') el.style.display = compareMode ? 'inline-block' : 'none';
+            });
+            // col-b is a div that needs flex
+            document.getElementById('col-b').style.display = compareMode ? 'flex' : 'none';
+
+            // Update labels
+            document.getElementById('label-input-a').textContent  = compareMode ? 'Input A'  : 'Input';
+            document.getElementById('label-output-a').textContent = compareMode ? 'Output A' : 'Output';
+
+            // Update button labels
+            document.getElementById('beautify-btn').textContent = compareMode ? 'Beautify Both' : 'Beautify';
+            document.getElementById('minify-btn').textContent   = compareMode ? 'Minify Both'   : 'Minify';
+
+            updateCopyLabels();
+
+            // Re-render badge text for changed labels
+            ['a', 'b'].forEach(function(s) {
+                var b = document.getElementById('badge-' + s);
+                if (b.classList.contains('valid'))   setBadge(s, 'valid');
+                if (b.classList.contains('invalid')) setBadge(s, 'invalid');
+            });
+        }
+
+        function updateCopyLabels() {
+            document.getElementById('copy-a-btn').textContent = compareMode ? 'Copy A' : 'Copy';
+        }
+    </script>
+</body>
+</html>
