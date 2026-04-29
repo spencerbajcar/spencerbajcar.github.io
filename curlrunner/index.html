@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cURL Runner – spencerbajcar.github.io</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f4f4f4;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header a {
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.15s;
+        }
+        .header a:hover { color: #fff; }
+        .header-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* ── Main layout ── */
+        .main {
+            max-width: 1000px;
+            margin: 28px auto;
+            padding: 0 20px 40px;
+        }
+
+        /* ── Panel cards ── */
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            background: #f8f8f8;
+            border-bottom: 1px solid #e8e8e8;
+            padding: 10px 16px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .card-body { padding: 16px; }
+
+        /* ── Input textarea ── */
+        #curl-input {
+            width: 100%;
+            min-height: 140px;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.55;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px 14px;
+            resize: vertical;
+            color: #333;
+            background: #fafafa;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+        #curl-input:focus {
+            border-color: #0969da;
+            box-shadow: 0 0 0 3px rgba(9,105,218,0.12);
+            background: #fff;
+        }
+        #curl-input::placeholder { color: #aaa; }
+
+        /* ── Controls ── */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 9px 18px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: #0969da;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #0550ae; }
+        .btn-primary:disabled {
+            background: #6cb0f5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #444;
+        }
+        .btn-secondary:hover { background: #e2e2e2; }
+        .btn-copy {
+            background: #f0f0f0;
+            color: #444;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .btn-copy:hover { background: #e2e2e2; }
+        .btn-copy.copied {
+            background: #dafbe1;
+            color: #1a7f37;
+        }
+
+        /* ── Spinner ── */
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: none;
+        }
+        .btn-primary.loading .spinner { display: block; }
+        .btn-primary.loading .btn-label { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Status badge ── */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            letter-spacing: 0.02em;
+        }
+        .status-1xx { background: #f0f0f0; color: #555; }
+        .status-2xx { background: #dafbe1; color: #1a7f37; }
+        .status-3xx { background: #fff8c5; color: #9a6700; }
+        .status-4xx { background: #ffebe9; color: #cf222e; }
+        .status-5xx { background: #ffebe9; color: #cf222e; }
+
+        .time-label {
+            font-size: 0.78rem;
+            color: #888;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+        }
+
+        /* ── Response headers toggle ── */
+        .headers-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #0969da;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-family: inherit;
+        }
+        .headers-toggle:hover { text-decoration: underline; }
+        .headers-panel {
+            display: none;
+            margin-bottom: 14px;
+            border: 1px solid #eaeaea;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .headers-panel.open { display: block; }
+        .headers-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+        }
+        .headers-table tr:nth-child(odd) { background: #f8f8f8; }
+        .headers-table td {
+            padding: 5px 12px;
+            vertical-align: top;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .headers-table td:first-child {
+            color: #0550ae;
+            font-weight: 600;
+            white-space: nowrap;
+            width: 1%;
+            padding-right: 20px;
+        }
+        .headers-table td:last-child { color: #333; word-break: break-all; }
+
+        /* ── Response body ── */
+        #response-body {
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            margin: 0;
+            color: #333;
+            min-height: 40px;
+        }
+
+        /* ── JSON syntax highlighting (same scheme as JSON beautifier) ── */
+        .jk { color: #0550ae; font-weight: 600; }
+        .js { color: #116329; }
+        .jn { color: #953800; }
+        .jb { color: #8250df; font-style: italic; }
+        .jz { color: #cf222e; font-style: italic; }
+        .jd0 { color: #d1242f; font-weight: 600; }
+        .jd1 { color: #0550ae; font-weight: 600; }
+        .jd2 { color: #1a7f37; font-weight: 600; }
+        .jd3 { color: #8250df; font-weight: 600; }
+        .jd4 { color: #953800; font-weight: 600; }
+
+        /* ── Error / info messages ── */
+        .alert {
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .alert-error { background: #ffebe9; color: #cf222e; }
+        .alert-warn  { background: #fff8c5; color: #9a6700; }
+        .alert-info  { background: #ddf4ff; color: #0550ae; }
+
+        /* ── Empty / placeholder state ── */
+        .placeholder {
+            color: #bbb;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 28px 0;
+        }
+
+        /* ── Parsed request summary ── */
+        .parsed-summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 0.82rem;
+        }
+        .method-badge {
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #ddf4ff;
+            color: #0550ae;
+        }
+        .url-text {
+            font-family: "SF Mono", "Fira Code", Consolas, monospace;
+            font-size: 0.78rem;
+            color: #555;
+            word-break: break-all;
+        }
+
+        @media (max-width: 600px) {
+            .main { padding: 0 12px 32px; }
+            .card-body { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <a href="/">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        spencerbajcar.github.io
+    </a>
+    <span class="header-title">cURL Runner</span>
+</div>
+
+<div class="main">
+
+    <!-- Input card -->
+    <div class="card">
+        <div class="card-header">cURL Command</div>
+        <div class="card-body">
+            <textarea id="curl-input" spellcheck="false"
+                placeholder="curl --request GET \&#10;     --url 'https://api.example.com/endpoint' \&#10;     --header 'accept: application/json'"></textarea>
+            <div style="margin-top:12px;" class="controls">
+                <button class="btn btn-primary" id="send-btn" onclick="sendRequest()">
+                    <div class="spinner"></div>
+                    <span class="btn-label">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-2px">
+                            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                        Send Request
+                    </span>
+                </button>
+                <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+                <span id="parse-preview"></span>
+            </div>
+            <div id="parse-error" style="margin-top:10px;display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Response card -->
+    <div class="card">
+        <div class="card-header">
+            <span>Response</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span id="response-time" class="time-label" style="display:none;"></span>
+                <span id="status-badge-wrap"></span>
+                <button class="btn btn-copy" id="copy-btn" onclick="copyResponse()" style="display:none;">Copy</button>
+            </div>
+        </div>
+        <div class="card-body" id="response-card-body">
+            <div class="placeholder" id="response-placeholder">Response will appear here after you send a request.</div>
+
+            <div id="cors-warning" style="display:none;margin-bottom:12px;"></div>
+            <div id="response-error" style="display:none;margin-bottom:12px;"></div>
+
+            <!-- headers toggle + table -->
+            <div id="headers-section" style="display:none;">
+                <button class="headers-toggle" onclick="toggleHeaders()">
+                    <svg id="headers-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                    <span id="headers-toggle-label">Show response headers</span>
+                </button>
+                <div class="headers-panel" id="headers-panel">
+                    <table class="headers-table" id="headers-table"></table>
+                </div>
+            </div>
+
+            <pre id="response-body"></pre>
+        </div>
+    </div>
+
+    <!-- CORS note -->
+    <div class="alert alert-info" style="font-size:0.8rem;">
+        <strong>Note:</strong> Requests are made directly from your browser using <code>fetch()</code>.
+        APIs that don't send CORS headers will be blocked — this is a browser security restriction, not a bug.
+        If you hit a CORS error, the API can still be called from curl or a server-side context.
+    </div>
+
+</div>
+
+<script>
+// ── cURL parser ──────────────────────────────────────────────────────────────
+
+function parseCurl(raw) {
+    // Join continuation lines and normalize whitespace
+    const joined = raw.replace(/\\\r?\n\s*/g, ' ').trim();
+
+    // Tokenize respecting single and double quotes
+    const tokens = tokenize(joined);
+
+    if (!tokens.length || tokens[0].toLowerCase() !== 'curl') {
+        throw new Error('Input must start with "curl".');
+    }
+
+    let method = null;
+    let url = null;
+    const headers = {};
+    let body = null;
+
+    let i = 1;
+    while (i < tokens.length) {
+        const t = tokens[i];
+
+        if (t === '-X' || t === '--request') {
+            method = tokens[++i];
+        } else if (t === '--url') {
+            url = tokens[++i];
+        } else if (t === '-H' || t === '--header') {
+            const hdr = tokens[++i];
+            const colon = hdr.indexOf(':');
+            if (colon !== -1) {
+                const name = hdr.slice(0, colon).trim().toLowerCase();
+                const value = hdr.slice(colon + 1).trim();
+                headers[name] = value;
+            }
+        } else if (t === '-d' || t === '--data' || t === '--data-raw' || t === '--data-binary' || t === '--data-urlencode') {
+            body = tokens[++i];
+        } else if (t === '-u' || t === '--user') {
+            const creds = tokens[++i];
+            headers['authorization'] = 'Basic ' + btoa(creds);
+        } else if (t === '--compressed' || t === '-L' || t === '--location' || t === '-k' || t === '--insecure' || t === '-s' || t === '--silent' || t === '-i' || t === '--include' || t === '-v' || t === '--verbose') {
+            // ignore these flags
+        } else if (!t.startsWith('-')) {
+            // bare URL
+            if (!url) url = t;
+        }
+        i++;
+    }
+
+    if (!url) throw new Error('No URL found in the cURL command.');
+
+    // Infer method
+    if (!method) method = body ? 'POST' : 'GET';
+
+    // Add content-type default for JSON bodies if not set
+    if (body && !headers['content-type']) {
+        try { JSON.parse(body); headers['content-type'] = 'application/json'; } catch (_) {}
+    }
+
+    return { method: method.toUpperCase(), url, headers, body };
+}
+
+function tokenize(str) {
+    const tokens = [];
+    let i = 0;
+    while (i < str.length) {
+        // skip whitespace
+        while (i < str.length && /\s/.test(str[i])) i++;
+        if (i >= str.length) break;
+
+        let tok = '';
+        if (str[i] === "'") {
+            i++;
+            while (i < str.length && str[i] !== "'") tok += str[i++];
+            i++; // closing quote
+        } else if (str[i] === '"') {
+            i++;
+            while (i < str.length && str[i] !== '"') {
+                if (str[i] === '\\' && i + 1 < str.length) { i++; tok += str[i++]; }
+                else tok += str[i++];
+            }
+            i++;
+        } else {
+            while (i < str.length && !/\s/.test(str[i])) tok += str[i++];
+        }
+        if (tok) tokens.push(tok);
+    }
+    return tokens;
+}
+
+// ── Request sender ───────────────────────────────────────────────────────────
+
+let lastResponseText = '';
+
+async function sendRequest() {
+    const raw = document.getElementById('curl-input').value.trim();
+    if (!raw) return;
+
+    clearResponse();
+    hideParseError();
+
+    let parsed;
+    try {
+        parsed = parseCurl(raw);
+    } catch (e) {
+        showParseError(e.message);
+        return;
+    }
+
+    showParsePreview(parsed);
+    setLoading(true);
+
+    const startTime = performance.now();
+    try {
+        const fetchOpts = {
+            method: parsed.method,
+            headers: parsed.headers,
+        };
+        if (parsed.body && !['GET', 'HEAD'].includes(parsed.method)) {
+            fetchOpts.body = parsed.body;
+        }
+
+        const response = await fetch(parsed.url, fetchOpts);
+        const elapsed = Math.round(performance.now() - startTime);
+
+        const responseText = await response.text();
+        lastResponseText = responseText;
+
+        renderResponse(response, responseText, elapsed);
+    } catch (err) {
+        const elapsed = Math.round(performance.now() - startTime);
+        renderFetchError(err, elapsed);
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderResponse(response, text, elapsed) {
+    document.getElementById('response-placeholder').style.display = 'none';
+    document.getElementById('response-time').textContent = elapsed + ' ms';
+    document.getElementById('response-time').style.display = '';
+
+    // Status badge
+    const code = response.status;
+    const cls = 'status-' + (Math.floor(code / 100)) + 'xx';
+    const badge = document.createElement('span');
+    badge.className = 'status-badge ' + cls;
+    badge.textContent = code + ' ' + response.statusText;
+    document.getElementById('status-badge-wrap').appendChild(badge);
+
+    // Response headers
+    const headerEntries = [];
+    response.headers.forEach((val, key) => headerEntries.push([key, val]));
+    if (headerEntries.length) {
+        renderHeaders(headerEntries);
+    }
+
+    // Body
+    const contentType = response.headers.get('content-type') || '';
+    const bodyEl = document.getElementById('response-body');
+    if (contentType.includes('application/json') || isLikelyJson(text)) {
+        try {
+            const parsed = JSON.parse(text);
+            const pretty = JSON.stringify(parsed, null, 2);
+            bodyEl.innerHTML = highlightJSON(pretty);
+        } catch (_) {
+            bodyEl.textContent = text;
+        }
+    } else {
+        bodyEl.textContent = text;
+    }
+
+    document.getElementById('copy-btn').style.display = '';
+}
+
+function renderFetchError(err, elapsed) {
+    document.getElementById('response-placeholder').style.display = 'none';
+    document.getElementById('response-time').textContent = elapsed + ' ms';
+    document.getElementById('response-time').style.display = '';
+
+    const isCors = err.message && (
+        err.message.toLowerCase().includes('cors') ||
+        err.message.toLowerCase().includes('failed to fetch') ||
+        err.message.toLowerCase().includes('network')
+    );
+
+    const errDiv = document.getElementById('response-error');
+    errDiv.className = 'alert alert-error';
+    errDiv.textContent = err.message || String(err);
+    errDiv.style.display = '';
+
+    if (isCors) {
+        const warn = document.getElementById('cors-warning');
+        warn.className = 'alert alert-warn';
+        warn.innerHTML = '<strong>Possible CORS issue:</strong> The server may not allow browser-based requests. ' +
+            'Try adding <code>-H "Origin: null"</code> to your curl command, or check if the API has CORS support.';
+        warn.style.display = '';
+    }
+}
+
+function renderHeaders(entries) {
+    const section = document.getElementById('headers-section');
+    const table = document.getElementById('headers-table');
+    section.style.display = '';
+
+    entries.forEach(([key, val]) => {
+        const tr = document.createElement('tr');
+        const tdKey = document.createElement('td');
+        tdKey.textContent = key;
+        const tdVal = document.createElement('td');
+        tdVal.textContent = val;
+        tr.appendChild(tdKey);
+        tr.appendChild(tdVal);
+        table.appendChild(tr);
+    });
+}
+
+function toggleHeaders() {
+    const panel = document.getElementById('headers-panel');
+    const chevron = document.getElementById('headers-chevron');
+    const label = document.getElementById('headers-toggle-label');
+    const open = panel.classList.toggle('open');
+    chevron.style.transform = open ? 'rotate(90deg)' : '';
+    label.textContent = open ? 'Hide response headers' : 'Show response headers';
+}
+
+// ── JSON syntax highlighting (adapted from JSON beautifier) ──────────────────
+
+function highlightJSON(str) {
+    const DEPTH_CLASSES = ['jd0','jd1','jd2','jd3','jd4'];
+    let out = '';
+    let depth = 0;
+    let i = 0;
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    while (i < str.length) {
+        const ch = str[i];
+
+        if (ch === '"') {
+            // collect entire string
+            let s = '"';
+            i++;
+            while (i < str.length) {
+                if (str[i] === '\\') { s += str[i] + (str[i+1]||''); i += 2; }
+                else { s += str[i]; if (str[i] === '"') { i++; break; } else i++; }
+            }
+            // peek ahead (skip whitespace+colon) to decide key vs value
+            let j = i;
+            while (j < str.length && (str[j] === ' ' || str[j] === '\t')) j++;
+            if (str[j] === ':') out += '<span class="jk">' + esc(s) + '</span>';
+            else                out += '<span class="js">' + esc(s) + '</span>';
+            continue;
+        }
+
+        if (ch === '{' || ch === '[') {
+            const dc = DEPTH_CLASSES[depth % DEPTH_CLASSES.length];
+            out += '<span class="' + dc + '">' + esc(ch) + '</span>';
+            depth++;
+            i++; continue;
+        }
+        if (ch === '}' || ch === ']') {
+            depth = Math.max(0, depth - 1);
+            const dc = DEPTH_CLASSES[depth % DEPTH_CLASSES.length];
+            out += '<span class="' + dc + '">' + esc(ch) + '</span>';
+            i++; continue;
+        }
+
+        // number
+        if (ch === '-' || (ch >= '0' && ch <= '9')) {
+            let num = '';
+            while (i < str.length && /[-+0-9.eE]/.test(str[i])) num += str[i++];
+            out += '<span class="jn">' + esc(num) + '</span>';
+            continue;
+        }
+
+        // true / false / null
+        if (str.startsWith('true', i))  { out += '<span class="jb">true</span>';   i += 4; continue; }
+        if (str.startsWith('false', i)) { out += '<span class="jb">false</span>';  i += 5; continue; }
+        if (str.startsWith('null', i))  { out += '<span class="jz">null</span>';   i += 4; continue; }
+
+        out += esc(ch);
+        i++;
+    }
+    return out;
+}
+
+function isLikelyJson(text) {
+    const t = text.trim();
+    return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
+}
+
+// ── UI helpers ───────────────────────────────────────────────────────────────
+
+function setLoading(on) {
+    const btn = document.getElementById('send-btn');
+    if (on) btn.classList.add('loading'), btn.disabled = true;
+    else    btn.classList.remove('loading'), btn.disabled = false;
+}
+
+function clearResponse() {
+    document.getElementById('response-placeholder').style.display = '';
+    document.getElementById('response-time').style.display = 'none';
+    document.getElementById('status-badge-wrap').innerHTML = '';
+    document.getElementById('cors-warning').style.display = 'none';
+    document.getElementById('response-error').style.display = 'none';
+    document.getElementById('headers-section').style.display = 'none';
+    document.getElementById('headers-panel').classList.remove('open');
+    document.getElementById('headers-chevron').style.transform = '';
+    document.getElementById('headers-toggle-label').textContent = 'Show response headers';
+    document.getElementById('headers-table').innerHTML = '';
+    document.getElementById('response-body').innerHTML = '';
+    document.getElementById('copy-btn').style.display = 'none';
+    lastResponseText = '';
+}
+
+function clearAll() {
+    document.getElementById('curl-input').value = '';
+    clearResponse();
+    hideParseError();
+    document.getElementById('parse-preview').innerHTML = '';
+}
+
+function showParsePreview(parsed) {
+    const el = document.getElementById('parse-preview');
+    el.innerHTML = '<span class="parsed-summary">' +
+        '<span class="method-badge">' + parsed.method + '</span>' +
+        '<span class="url-text">' + escHtml(parsed.url) + '</span>' +
+        '</span>';
+}
+
+function showParseError(msg) {
+    const el = document.getElementById('parse-error');
+    el.className = 'alert alert-error';
+    el.textContent = 'Parse error: ' + msg;
+    el.style.display = '';
+}
+
+function hideParseError() {
+    document.getElementById('parse-error').style.display = 'none';
+}
+
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copyResponse() {
+    const btn = document.getElementById('copy-btn');
+    navigator.clipboard.writeText(lastResponseText).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+        }, 2000);
+    });
+}
+
+// Allow Ctrl+Enter / Cmd+Enter to send
+document.getElementById('curl-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendRequest();
+    }
+});
+</script>
+</body>
+</html>
